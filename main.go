@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"maps"
 	"net/http"
 )
 
@@ -11,10 +12,15 @@ import (
 
 func newAPI() *HttpAPI {
     api := NewHttpAPI()
-    result := 42
-    RegisterNoInputs(api, "GET /", func() (*int, error) {
+    RegisterNoInputs(api, "GET /", func(r *http.Request) (*map[string][]string, error) {
         slog.Info("GET /")
-        return &result, nil
+        m := make(map[string][]string)
+        maps.Copy(m, r.Header)
+        m["Host"] = []string{r.Host}
+        m["Source"] = []string{r.RemoteAddr}
+        m["URL"] = []string{r.URL.String()}
+        slog.Info("Response", "data", m)
+        return &m, nil
     })
     return api
 }

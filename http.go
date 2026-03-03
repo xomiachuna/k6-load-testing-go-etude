@@ -30,7 +30,7 @@ func NewHttpAPI() *HttpAPI {
 func Register[Input any, Output any](
     api *HttpAPI, 
     pattern string,
-    handler func(input *Input) (*Output, error),
+    handler func(request *http.Request, input *Input) (*Output, error),
 ) {
     api.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Accept", "application/json; charset=utf-8")
@@ -51,7 +51,7 @@ func Register[Input any, Output any](
             fmt.Fprintf(w, "unable to parse json as %T: %s", input, err.Error())
             return
         }
-        output, err := handler(&input)
+        output, err := handler(r, &input)
         if err != nil {
             // todo: check error type
             w.WriteHeader(http.StatusBadRequest)
@@ -77,10 +77,10 @@ func Register[Input any, Output any](
 func RegisterNoInputs[Output any](
     api *HttpAPI, 
     pattern string,
-    handler func() (*Output, error),
+    handler func(*http.Request) (*Output, error),
 ) {
     api.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-        output, err := handler()
+        output, err := handler(r)
         if err != nil {
             // todo: check error type
             w.WriteHeader(http.StatusBadRequest)

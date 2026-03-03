@@ -3,11 +3,18 @@ import http from 'k6/http'
 import { check, sleep } from 'k6'
 
 export const options = {
-    executor: 'ramping-arrival-rate', //Assure load increase if the system slows
     stages: [
         {
             target: 25000,
+            duration: "30s"
+        },
+        {
+            target: 25000,
             duration: "5m"
+        },
+        {
+            target: 0,
+            duration: "30s"
         },
     ]
 }
@@ -17,5 +24,5 @@ export default function(){
     check(res, {'status returned 200': (r) => {
         r.status == 200
     }})
-    sleep(0.1)
+    sleep(1)
 }
