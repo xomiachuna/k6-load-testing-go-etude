@@ -21,11 +21,11 @@ const testOptions = {
     average: {
         stages: [
             {
-                target: 500,
+                target: 2000,
                 duration: "30s"
             },
             {
-                target: 500,
+                target: 2000,
                 duration: "5m"
             },
             {
@@ -37,16 +37,25 @@ const testOptions = {
     stress: {
         stages: [
             {
-                target: 750,
+                target: 3000,
                 duration: "30s"
             },
             {
-                target: 750,
+                target: 3000,
                 duration: "5m"
             },
             {
                 target: 0,
                 duration: "30s"
+            },
+        ]
+    },
+    breakpoint: {
+        executor: 'ramping-arrival-rate', //Assure load increase if the system slows
+        stages: [
+            {
+                target: 10000,
+                duration: "20m"
             },
         ]
     },

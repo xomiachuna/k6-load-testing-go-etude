@@ -12,8 +12,12 @@ import (
 	"net"
 	"net/http"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "embed"
+	_ "net/http/pprof"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Request struct {
@@ -32,10 +36,11 @@ type Source struct {
 func connectToDatabase(ctx context.Context) (*sql.DB, error) {
     driver := "pgx"
     connString := "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
-    db, err := sql.Open(driver, connString)
+    pool, err := pgxpool.New(ctx, connString)
     if err != nil {
         return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
     }
+    db := stdlib.OpenDBFromPool(pool)
     err = db.PingContext(ctx)
     if err != nil {
         return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
@@ -138,6 +143,11 @@ func migrateDB(ctx context.Context, db *sql.DB) error {
 }
 
 func main(){
+    go func(){
+        // pprof
+        slog.Info("Starting pprof", "addr", "http://0.0.0.0:6060")
+        log.Fatalln(http.ListenAndServe(":6060", nil))
+    }()
     rootCtx, cancel := context.WithCancel(context.Background())
     defer cancel()
     db, err := connectToDatabase(rootCtx)
