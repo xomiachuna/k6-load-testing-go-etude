@@ -12,4 +12,5 @@ test-load:
 		-e K6_WEB_DASHBOARD_PERIOD=1s \
 		-e K6_WEB_DASHBOARD_EXPORT=/tests/report.html \
 		--network host \
-		grafana/k6 run test.js
+		grafana/k6 run test.js \
+			--summary-mode=full
