@@ -7,3 +7,20 @@ services:
       - 5432:5432
     volumes:
       - ./postgres:/var/lib/postgres/
+
+  db-prom-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter
+    environment:
+      DATA_SOURCE_URI: "db:5432/postgres?sslmode=disable" 
+      DATA_SOURCE_USER: postgres 
+      DATA_SOURCE_PASS: postgres 
+    ports:
+      - 9187:9187
+
+  prometheus:
+    image: prom/prometheus:v3-distroless
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus.yaml
+    ports:
+      - 9090:9090
+    command: --config.file=/etc/prometheus.yaml
