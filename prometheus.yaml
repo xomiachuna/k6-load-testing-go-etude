@@ -1,9 +1,16 @@
+global:
+  scrape_interval: "5s"
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets:
           - "localhost:9090"
+  - job_name: api
+    static_configs:
+      - targets:
+          - "localhost:8080"
   - job_name: postgres-exporter
     static_configs:
       - targets:
-          - "db-prom-exporter:9187"
+          - "localhost:9187"

@@ -3,6 +3,7 @@ services:
     image: postgres:18
     environment:
       POSTGRES_PASSWORD: postgres
+    network_mode: host
     ports:
       - 5432:5432
     volumes:
@@ -10,8 +11,9 @@ services:
 
   db-prom-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter
+    network_mode: host
     environment:
-      DATA_SOURCE_URI: "db:5432/postgres?sslmode=disable" 
+      DATA_SOURCE_URI: "localhost:5432/postgres?sslmode=disable" 
       DATA_SOURCE_USER: postgres 
       DATA_SOURCE_PASS: postgres 
     ports:
@@ -19,6 +21,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3-distroless
+    network_mode: host
     volumes:
       - ./prometheus.yaml:/etc/prometheus.yaml
     ports:

@@ -18,7 +18,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/jackc/pgx/v5/stdlib"
+    "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+func instrumentPrometheus(api *HttpAPI){
+    reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
+    api.Mux().Handle("GET /metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+}
 
 type Request struct {
     Source Source 
@@ -108,6 +120,7 @@ func addRequestLogEntry(ctx context.Context, db *sql.DB, entry *Request) (err er
 
 func newAPI(db *sql.DB) *HttpAPI {
     api := NewHttpAPI()
+    instrumentPrometheus(api)
     RegisterNoInputs(api, "POST /", func(r *http.Request) (*Request, error) {
         m := &Request{
             Host: r.Host,
