@@ -1,5 +1,9 @@
 .PHONY: default
-default: test-load
+default: run-gow
+
+.PHONY: run-gow
+run-gow:
+	OTEL_EXPORTER_OTLP_ENDPOINT='' gow run .
 
 .PHONY: test-load
 test-load: test-smoke test-average test-stress

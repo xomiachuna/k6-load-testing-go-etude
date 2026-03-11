@@ -18,19 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/jackc/pgx/v5/stdlib"
-    "github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-func instrumentPrometheus(api *HttpAPI){
-    reg := prometheus.NewRegistry()
-	reg.MustRegister(
-		collectors.NewGoCollector(),
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-	)
-    api.Mux().Handle("GET /metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-}
 
 type Request struct {
     Source Source 
@@ -118,7 +106,7 @@ func addRequestLogEntry(ctx context.Context, db *sql.DB, entry *Request) (err er
     return
 }
 
-func newAPI(db *sql.DB) *HttpAPI {
+func newAPIHandler(db *sql.DB) http.Handler {
     api := NewHttpAPI()
     instrumentPrometheus(api)
     RegisterNoInputs(api, "POST /", func(r *http.Request) (*Request, error) {
@@ -140,7 +128,12 @@ func newAPI(db *sql.DB) *HttpAPI {
         slog.Info("Response", "data", *m)
         return m, nil
     })
-    return api
+    globalMiddleware := NewChain(
+		LoggingMiddleware,
+		NewOtelHTTPMiddleware(),
+	)
+
+    return globalMiddleware.Wrap(api.Mux())
 }
 
 //go:embed schema.sql
@@ -163,6 +156,11 @@ func main(){
     }()
     rootCtx, cancel := context.WithCancel(context.Background())
     defer cancel()
+    shutdownOtel, err := SetupOtelSDK(rootCtx)
+    if err != nil {
+        log.Fatalln(err)
+    }
+    defer shutdownOtel(rootCtx)
     db, err := connectToDatabase(rootCtx)
     if err != nil {
         log.Fatalln(err)
@@ -172,11 +170,11 @@ func main(){
     if err != nil {
         log.Fatalln(err)
     }
-    api := newAPI(db)
+    api := newAPIHandler(db)
     port := 8080
     srv := http.Server{
         Addr: fmt.Sprintf(":%d", port),
-        Handler: api.Mux(),
+        Handler: api,
         BaseContext: func(_ net.Listener) context.Context { return rootCtx },
     }
     slog.Info("Starting api", "addr", fmt.Sprintf("http://0.0.0.0:%d", port))
