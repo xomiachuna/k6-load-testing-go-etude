@@ -1,5 +1,5 @@
 .PHONY: default
-default: run-gow
+default: run
 
 .PHONY: run-signoz
 run-sinoz:
@@ -9,13 +9,9 @@ run-sinoz:
 		up \
 		-d --force-recreate
 
-.PHONY: run-gow
-run-gow:
-	OTEL_EXPORTER_OTLP_ENDPOINT='' gow run .
-
 .PHONY: run
 run:
-	OTEL_EXPORTER_OTLP_ENDPOINT='' go run .
+	docker compose up api --force-recreate --build --watch
 
 .PHONY: test-load
 test-load: test-smoke test-average test-stress

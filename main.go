@@ -12,10 +12,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 
 	_ "embed"
 	_ "net/http/pprof"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -42,10 +44,21 @@ func mustGetConnString() string {
     return connString
 }
 
+func mustGetDBPoolSize(_ int) int {
+    return 500
+}
+
 func connectToDatabase(ctx context.Context) (*sql.DB, error) {
+    poolSize := mustGetDBPoolSize(runtime.NumCPU())
     driver := "pgx"
     connString := mustGetConnString()
-    pool, err := pgxpool.New(ctx, connString)
+    cfg, err := pgxpool.ParseConfig(connString)
+    cfg.MaxConns = int32(poolSize)
+    if err != nil {
+        return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
+    }
+    cfg.ConnConfig.Tracer = otelpgx.NewTracer()
+    pool, err := pgxpool.NewWithConfig(ctx, cfg)
     if err != nil {
         return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
     }
@@ -55,6 +68,11 @@ func connectToDatabase(ctx context.Context) (*sql.DB, error) {
         return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
     }
     slog.Info("Connected to database", "driver", driver, "conn", connString)
+    
+    if err := otelpgx.RecordStats(pool); err != nil {
+        db.Close() 
+        return nil, fmt.Errorf("unable to record database stats: %w", err)
+    }
     return db, nil
 }
 

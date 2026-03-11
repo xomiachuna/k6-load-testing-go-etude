@@ -54,7 +54,7 @@ const testOptions = {
         executor: 'ramping-arrival-rate', //Assure load increase if the system slows
         stages: [
             {
-                target: 10000,
+                target: 20000,
                 duration: "20m"
             },
         ]

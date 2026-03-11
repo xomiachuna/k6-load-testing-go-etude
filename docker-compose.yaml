@@ -19,6 +19,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: postgres -c max_connections=520
 
   postgres-exporter:
     !!merge <<: *common
@@ -51,6 +52,7 @@ services:
       OTEL_EXPORTER_OTLP_INSECURE: true                       # set to false when using TLS
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       DB_CONN_STRING: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
+      DB_CONN_POOL_SIZE: "500"
     develop:
       watch:
         - path: ./
