@@ -1,29 +1,62 @@
+x-common: &common
+  networks:
+    - signoz-net
+
 services:
-  db:
+  postgres:
+    !!merge <<: *common
     image: postgres:18
     environment:
       POSTGRES_PASSWORD: postgres
-    network_mode: host
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
     ports:
       - 5432:5432
     volumes:
       - ./postgres:/var/lib/postgres/
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  db-prom-exporter:
+  postgres-exporter:
+    !!merge <<: *common
     image: quay.io/prometheuscommunity/postgres-exporter
-    network_mode: host
     environment:
-      DATA_SOURCE_URI: "localhost:5432/postgres?sslmode=disable" 
+      DATA_SOURCE_URI: "postgres:5432/postgres?sslmode=disable" 
       DATA_SOURCE_USER: postgres 
       DATA_SOURCE_PASS: postgres 
     ports:
       - 9187:9187
 
   prometheus:
+    !!merge <<: *common
     image: prom/prometheus:v3-distroless
-    network_mode: host
     volumes:
       - ./prometheus.yaml:/etc/prometheus.yaml
     ports:
       - 9090:9090
     command: --config.file=/etc/prometheus.yaml
+
+  api:
+    !!merge <<: *common
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - 8080:8080
+    environment:
+      OTEL_EXPORTER_OTLP_INSECURE: true                       # set to false when using TLS
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      DB_CONN_STRING: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
+    develop:
+      watch:
+        - path: ./
+          action: rebuild
+
+
+networks:
+  signoz-net:
+    external: true

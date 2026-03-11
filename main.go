@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"os"
 
 	_ "embed"
 	_ "net/http/pprof"
@@ -33,9 +34,17 @@ type Source struct {
     UserAgent string
 }
 
+func mustGetConnString() string {
+    connString, ok := os.LookupEnv("DB_CONN_STRING")
+    if !ok {
+        log.Fatalf("DB_CONN_STRING not set")
+    }
+    return connString
+}
+
 func connectToDatabase(ctx context.Context) (*sql.DB, error) {
     driver := "pgx"
-    connString := "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+    connString := mustGetConnString()
     pool, err := pgxpool.New(ctx, connString)
     if err != nil {
         return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
