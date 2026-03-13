@@ -12,15 +12,11 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"runtime"
 
 	_ "embed"
 	_ "net/http/pprof"
 
-	"github.com/exaring/otelpgx"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/jackc/pgx/v5/stdlib"
+    _ "modernc.org/sqlite"
 )
 
 type Request struct {
@@ -44,35 +40,35 @@ func mustGetConnString() string {
     return connString
 }
 
-func mustGetDBPoolSize(_ int) int {
-    return 500
-}
-
 func connectToDatabase(ctx context.Context) (*sql.DB, error) {
-    poolSize := mustGetDBPoolSize(runtime.NumCPU())
-    driver := "pgx"
+    driver := "sqlite"
     connString := mustGetConnString()
-    cfg, err := pgxpool.ParseConfig(connString)
-    cfg.MaxConns = int32(poolSize)
+    db, err := sql.Open(driver, connString)
     if err != nil {
-        return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
+        return nil, fmt.Errorf("connect to db: %w", err)
     }
-    cfg.ConnConfig.Tracer = otelpgx.NewTracer()
-    pool, err := pgxpool.NewWithConfig(ctx, cfg)
-    if err != nil {
-        return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
-    }
-    db := stdlib.OpenDBFromPool(pool)
-    err = db.PingContext(ctx)
-    if err != nil {
-        return nil, fmt.Errorf("connect to %s db at %s: %w", driver, connString, err)
+
+    pragmas := []string{
+		"PRAGMA journal_mode = WAL",   // Write-Ahead Logging for better concurrency
+		"PRAGMA synchronous = NORMAL", // Good balance of safety and performance
+		"PRAGMA foreign_keys = ON",    // Enable foreign key constraints
+		"PRAGMA busy_timeout = 50000",  // Wait up to 5s when database is locked
+		"PRAGMA cache_size = -64000",  // 64MB cache (negative = KB, positive = pages)
+		"PRAGMA temp_store = MEMORY",  // Store temp tables in memory
+	}
+
+    for _, pragma := range pragmas {
+		if _, err := db.ExecContext(ctx, pragma); err != nil {
+            return nil, fmt.Errorf("failed to set pragma %s: %w", pragma, err)
+		}
+	}
+        
+    db.SetMaxOpenConns(1)
+
+    if err := db.PingContext(ctx); err != nil {
+        return nil, fmt.Errorf("connect to db: %w", err)
     }
     slog.Info("Connected to database", "driver", driver, "conn", connString)
-    
-    if err := otelpgx.RecordStats(pool); err != nil {
-        db.Close() 
-        return nil, fmt.Errorf("unable to record database stats: %w", err)
-    }
     return db, nil
 }
 
@@ -98,7 +94,7 @@ func addRequestLogEntry(ctx context.Context, db *sql.DB, entry *Request) (err er
             err = errors.Join(tx.Rollback(), err)
         }
     }()
-    insertIntoSourcesIfNotExist := `INSERT INTO sources (address, user_agent) VALUES ($1, $2) ON CONFLICT DO NOTHING`
+    insertIntoSourcesIfNotExist := `INSERT INTO sources (address, user_agent) VALUES (?, ?) ON CONFLICT DO NOTHING`
     _, err = tx.ExecContext(ctx, insertIntoSourcesIfNotExist, entry.Source.Address, entry.Source.UserAgent)
     if err != nil {
         return fmt.Errorf("add request log entry (%#v): %w", *entry, err)
@@ -111,7 +107,7 @@ func addRequestLogEntry(ctx context.Context, db *sql.DB, entry *Request) (err er
         url,
         host
     )
-    VALUES ($1, $2, $3, $4, $5, $6)`
+    VALUES (?, ?, ?, ?, ?, ?)`
     headers, err := json.Marshal(entry.Headers)
     if err != nil {
         return fmt.Errorf("add request log entry (%#v): %w", *entry, err)
@@ -121,7 +117,7 @@ func addRequestLogEntry(ctx context.Context, db *sql.DB, entry *Request) (err er
         insertIntoRequests,
         entry.Source.Address,
         entry.Source.UserAgent,
-        headers,
+        string(headers),
         entry.Method,
         entry.URL,
         entry.Host,

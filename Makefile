@@ -11,7 +11,7 @@ run-sinoz:
 
 .PHONY: run
 run:
-	docker compose up api --force-recreate --build --watch
+	docker compose up api --build
 
 .PHONY: test-load
 test-load: test-smoke test-average test-stress
