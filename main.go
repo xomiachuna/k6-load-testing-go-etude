@@ -12,11 +12,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 
 	_ "embed"
 	_ "net/http/pprof"
 
-    _ "modernc.org/sqlite"
+	_ "modernc.org/sqlite"
 )
 
 type Request struct {
@@ -30,6 +31,33 @@ type Request struct {
 type Source struct {
     Address string
     UserAgent string
+}
+
+type DBSerializer struct {
+    db *sql.DB
+    queue chan func(*sql.DB)
+}
+
+func NewDbSerializer(db *sql.DB, size int) *DBSerializer {
+    return &DBSerializer{
+        db: db,
+        queue: make(chan func(*sql.DB), size),
+    }
+}
+
+func (s *DBSerializer) Run(work func(*sql.DB)) {
+    s.queue <- work
+}
+
+func (s *DBSerializer) Poll(ctx context.Context) error {
+    for {
+        select {
+        case work := <- s.queue:
+            work(s.db)
+        case <-ctx.Done():
+            return ctx.Err()
+        }
+    }
 }
 
 func mustGetConnString() string {
@@ -52,7 +80,7 @@ func connectToDatabase(ctx context.Context) (*sql.DB, error) {
 		"PRAGMA journal_mode = WAL",   // Write-Ahead Logging for better concurrency
 		"PRAGMA synchronous = NORMAL", // Good balance of safety and performance
 		"PRAGMA foreign_keys = ON",    // Enable foreign key constraints
-		"PRAGMA busy_timeout = 50000",  // Wait up to 5s when database is locked
+		"PRAGMA busy_timeout = 5000",  // Wait up to 5s when database is locked
 		"PRAGMA cache_size = -64000",  // 64MB cache (negative = KB, positive = pages)
 		"PRAGMA temp_store = MEMORY",  // Store temp tables in memory
 	}
@@ -148,11 +176,11 @@ func newAPIHandler(db *sql.DB) http.Handler {
         if err != nil {
             return nil, fmt.Errorf("post %s: %w", r.URL.String(), err)
         }
-        slog.Info("Response", "data", *m)
+        // slog.Info("Response", "data", *m)
         return m, nil
     })
     globalMiddleware := NewChain(
-		LoggingMiddleware,
+		// LoggingMiddleware,
 		NewOtelHTTPMiddleware(),
 	)
 
@@ -174,6 +202,8 @@ func migrateDB(ctx context.Context, db *sql.DB) error {
 func main(){
     go func(){
         // pprof
+        runtime.SetBlockProfileRate(1)
+        runtime.SetMutexProfileFraction(1)
         slog.Info("Starting pprof", "addr", "http://0.0.0.0:6060")
         log.Fatalln(http.ListenAndServe(":6060", nil))
     }()

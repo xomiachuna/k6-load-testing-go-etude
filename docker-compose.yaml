@@ -48,11 +48,16 @@ services:
         condition: service_healthy
     ports:
       - 8080:8080
+      - 6060:6060
     environment:
       OTEL_EXPORTER_OTLP_INSECURE: true                       # set to false when using TLS
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      DB_CONN_STRING: file:/mnt/database/db.sqlite
+      DB_CONN_STRING: "file:/mnt/database/db.sqlite"
       DB_CONN_POOL_SIZE: "500"
+    develop:
+      watch:
+        - path: ./
+          action: rebuild
     volumes:
       - ./sqlite:/mnt/database
 

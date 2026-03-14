@@ -37,11 +37,11 @@ const testOptions = {
     stress: {
         stages: [
             {
-                target: 3000,
+                target: 5000,
                 duration: "30s"
             },
             {
-                target: 3000,
+                target: 5000,
                 duration: "5m"
             },
             {
@@ -55,7 +55,7 @@ const testOptions = {
         stages: [
             {
                 target: 20000,
-                duration: "20m"
+                duration: "5m"
             },
         ]
     },
