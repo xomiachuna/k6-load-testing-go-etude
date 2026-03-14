@@ -152,12 +152,12 @@ func newAPIHandler(db *sql.DB) http.Handler {
         if err != nil {
             return nil, fmt.Errorf("post %s: %w", r.URL.String(), err)
         }
-        slog.Info("Response", "data", *m)
+        // slog.Info("Response", "data", *m)
         return m, nil
     })
     globalMiddleware := NewChain(
-		LoggingMiddleware,
-		NewOtelHTTPMiddleware(),
+		// LoggingMiddleware,
+		// NewOtelHTTPMiddleware(),
 	)
 
     return globalMiddleware.Wrap(api.Mux())
@@ -178,16 +178,18 @@ func migrateDB(ctx context.Context, db *sql.DB) error {
 func main(){
     go func(){
         // pprof
-        slog.Info("Starting pprof", "addr", "http://0.0.0.0:6060")
-        log.Fatalln(http.ListenAndServe(":6060", nil))
+        runtime.SetBlockProfileRate(1)
+        runtime.SetMutexProfileFraction(1)
+        slog.Info("Starting pprof", "addr", "http://0.0.0.0:6666")
+        log.Fatalln(http.ListenAndServe(":6666", nil))
     }()
     rootCtx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    shutdownOtel, err := SetupOtelSDK(rootCtx)
-    if err != nil {
-        log.Fatalln(err)
-    }
-    defer shutdownOtel(rootCtx)
+    // shutdownOtel, err := SetupOtelSDK(rootCtx)
+    // if err != nil {
+    //     log.Fatalln(err)
+    // }
+    // defer shutdownOtel(rootCtx)
     db, err := connectToDatabase(rootCtx)
     if err != nil {
         log.Fatalln(err)

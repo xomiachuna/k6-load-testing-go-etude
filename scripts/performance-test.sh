@@ -7,7 +7,7 @@ docker run --rm -it \
     -v ./tests/k6/:/tests \
     -w /tests \
     -e K6_WEB_DASHBOARD=true \
-    -e K6_WEB_DASHBOARD_PERIOD=30s \
+    -e K6_WEB_DASHBOARD_PERIOD=10s \
     -e K6_WEB_DASHBOARD_EXPORT=/tests/report-$TEST_KIND.html \
     -e TEST_KIND=$TEST_KIND \
     --network host \

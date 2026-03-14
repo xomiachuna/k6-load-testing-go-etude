@@ -55,7 +55,7 @@ const testOptions = {
         stages: [
             {
                 target: 20000,
-                duration: "20m"
+                duration: "5m"
             },
         ]
     },
