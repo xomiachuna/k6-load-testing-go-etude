@@ -181,7 +181,7 @@ func newAPIHandler(db *sql.DB) http.Handler {
     })
     globalMiddleware := NewChain(
 		// LoggingMiddleware,
-		NewOtelHTTPMiddleware(),
+		// NewOtelHTTPMiddleware(),
 	)
 
     return globalMiddleware.Wrap(api.Mux())
@@ -209,11 +209,11 @@ func main(){
     }()
     rootCtx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    shutdownOtel, err := SetupOtelSDK(rootCtx)
-    if err != nil {
-        log.Fatalln(err)
-    }
-    defer shutdownOtel(rootCtx)
+    // shutdownOtel, err := SetupOtelSDK(rootCtx)
+    // if err != nil {
+    //     log.Fatalln(err)
+    // }
+    // defer shutdownOtel(rootCtx)
     db, err := connectToDatabase(rootCtx)
     if err != nil {
         log.Fatalln(err)
